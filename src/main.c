@@ -11,6 +11,8 @@
 
 #include <benjalib.h>
 #include <ctype.h>
+#include <iso646.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include "dataframe.h"
@@ -240,10 +242,10 @@ dataframe_shape_t *df_shape(dataframe_t *df)
     return shape;
 }
 
-void df_mean_f(dataframe_t *dataframe, int i)
-{
-
-}
+// void df_mean_f(dataframe_t *dataframe, int i)
+// {
+//
+// }
 
 void df_describe(dataframe_t *dataframe)
 {
@@ -263,15 +265,112 @@ void df_describe(dataframe_t *dataframe)
     }
 }
 
+void df_disp(dataframe_t *frame)
+{
+    for (int j = 0; j < frame->nb_rows; j++) {
+        for (int i = 0; i < frame->nb_columns; i++) {
+            if (frame->column_types[i] == INT)
+                printf("%10d | ", *(int *)frame->data[j][i]);
+            if (frame->column_types[i] == UINT)
+                printf("%10u | ", *(unsigned int *)frame->data[j][i]);
+            // if (frame->column_types[i] == 3)
+            //     printf("%10ld | ", (long int)frame->data[j][i]);
+            // if (frame->column_types[i] == 4)
+            //     printf("%10lu | ", (unsigned long int)frame->data[j][i]);
+            if (frame->column_types[i] == FLOAT)
+                printf("%10f | ", *(double *)frame->data[j][i]);
+            if (frame->column_types[i] == BOOL)
+                printf("%10d | ", *(char *)frame->data[j][i]);
+            if (frame->column_types[i] == STRING)
+                printf("%10s | ", (char *)frame->data[j][i]);
+        }
+        printf("\n");
+    }
+}
+
+void copy_data(void **copy, void **df, dataframe_t *dataframe)
+{
+    switch (dataframe->column_types[0])
+    {
+        case INT:
+        case UINT:
+        case FLOAT:
+        **(int **)copy = **(int **)df;
+        return;
+        case BOOL:
+        **(char **)copy = **(char **)df;
+        return;
+        case STRING:
+        *(char **)copy = strdup(*(char **)df);
+        return;
+    }
+}
+
+dataframe_t *data_dupe(dataframe_t *df)
+{
+    dataframe_t *copy = calloc(1, sizeof(dataframe_t));
+
+    printf("rows: %d    columns: %d\n", df->nb_rows, df->nb_columns);
+    copy->nb_rows = df->nb_rows;
+    copy->nb_columns = df->nb_columns;
+    copy->column_names = malloc(sizeof(char *) * df->nb_columns);
+    copy->data = malloc(sizeof(void **) * df->nb_rows);
+
+    for (int i = 0; i < df->nb_rows; i++) {
+        copy->data[i] = malloc(sizeof(void *) * df->nb_columns);
+        for (int j = 0; j < df->nb_columns; j++) {
+            if (i == 0)
+                copy->column_names[j] = strdup(df->column_names[j]);
+            printf("data: %p\n", df->data[i][j]);
+            copy_data(&copy->data[i][j], &df->data[i][j], df);
+        }
+    }
+    copy->column_types = malloc(sizeof(column_type_t) * df->nb_columns);
+    memcpy(copy->column_types, df->column_types,
+           sizeof(column_type_t) * df->nb_columns);
+
+    return copy;
+}
+
+dataframe_t *df_tail(dataframe_t *dataframe, int amount)
+{
+    int nb;
+    char *buf[amount];
+    dataframe_t *df =data_dupe(dataframe);
+    int start = dataframe->nb_rows - amount;
+
+
+    for (int i = dataframe->nb_rows; i > 0; i--) {
+        memmove(df->data, dataframe->data[start],sizeof(char *) * amount);
+        if (nb == amount)
+            break;
+        nb++;
+    }
+    for (int i = 0; i < dataframe->nb_columns; i++) {
+        for (int j = 3; j < dataframe->nb_rows; j++) {
+            free(dataframe->data[i][j]);
+        }
+    }
+    return df;
+}
+
 int main(int argc, char **argv)
 {
     dataframe_t *df = df_read_csv("data.csv", NULL);
+    dataframe_t *tail;
 
     if (!df) {
         fprintf(stderr, "Error reading file\n");
         return 84;
     }
     df_info(df);
+    printf("\n\n");
+    // tail = df_tail(df, 1);
+    tail = data_dupe(df);
+    df_disp(tail);
+    printf("\n\n");
+    df_disp(df);
+
     dataframe_shape_t *shape = df_shape(df);
     if (!shape) {
         free(df);

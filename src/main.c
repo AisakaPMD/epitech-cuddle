@@ -127,6 +127,7 @@ static int df_set_columns_type(dataframe_t *df)
 {
     long tmp = 0;
     float tmpf = 0;
+    char *tmp_str = NULL;
 
     for (int i = 0; i < df->nb_columns; i++) {
         for (int j = 0; j < df->nb_rows; j++) {
@@ -151,15 +152,16 @@ static int df_set_columns_type(dataframe_t *df)
                 *(float *)df->data[j][i] = tmpf;
             }
             if (df->column_types[i] == BOOL) {
-                safe_free(&df->data[j][i]);
+                tmp_str = df->data[j][i];
                 df->data[j][i] = calloc(1, sizeof(char));
                 if (!df->data[j][i])
                     return df_interr("Could not allocate memory for column %d\n", i);
-                if (strcmp(df->data[j][i], DF_TRUE) == 0) {
+                if (strcmp(tmp_str, DF_TRUE) == 0) {
                     *(char *)df->data[j][i] = 1;
-                } else if (strcmp(df->data[j][i], DF_FALSE) == 0) {
+                } else if (strcmp(tmp_str, DF_FALSE) == 0) {
                     *(char *)df->data[j][i] = 0;
                 }
+                free(tmp_str);
             }
         }
     }
@@ -240,9 +242,49 @@ dataframe_shape_t *df_shape(dataframe_t *df)
     return shape;
 }
 
-void df_mean_f(dataframe_t *dataframe, int i)
+float df_getfloat(dataframe_t *dataframe, int row, int col)
 {
+    return *((float *) dataframe->data[row][col]);
+}
 
+int df_getint(dataframe_t *dataframe, int row, int col)
+{
+    return *((int *) dataframe->data[row][col]);
+}
+
+unsigned int df_getuint(dataframe_t *dataframe, int row, int col)
+{
+    return *((unsigned int *) dataframe->data[row][col]);
+}
+
+float df_mean_f(dataframe_t *dataframe, int col)
+{
+    float sum = 0;
+
+    for (int i = 0; i < dataframe->nb_rows; i++) {
+        sum += df_getfloat(dataframe, i, col);
+    }
+    return sum / (float) dataframe->nb_rows;
+}
+
+float df_mean_i(dataframe_t *dataframe, int col)
+{
+    float sum = 0;
+
+    for (int i = 0; i < dataframe->nb_rows; i++) {
+        sum += (float) df_getint(dataframe, i, col);
+    }
+    return sum / (float) dataframe->nb_rows;
+}
+
+float df_mean_u(dataframe_t *dataframe, int col)
+{
+    float sum = 0;
+
+    for (int i = 0; i < dataframe->nb_rows; i++) {
+        sum += (float) df_getuint(dataframe, i, col);
+    }
+    return sum / (float) dataframe->nb_rows;
 }
 
 void df_describe(dataframe_t *dataframe)
@@ -255,12 +297,112 @@ void df_describe(dataframe_t *dataframe)
         printf("Column: %s\n", dataframe->column_names[i]);
         printf("Count: %d\n", dataframe->nb_rows);
         mean = 0;
-        for (int j = 0; j < dataframe->nb_rows; j++) {
-            mean += *((float *) dataframe->data[j][i]);
-        }
-        mean /= (float) dataframe->nb_rows;
+        if (dataframe->column_types[i] == FLOAT)
+            mean = df_mean_f(dataframe, i);
+        else if (dataframe->column_types[i] == INT)
+            mean = df_mean_i(dataframe, i);
+        else if (dataframe->column_types[i] == UINT)
+            mean = df_mean_u(dataframe, i);
         printf("Mean: %f\n", mean);
     }
+}
+
+static char *my_join(char *separator, char **strings, int nb_strings)
+{
+    size_t len = 0;
+    char *dest = NULL;
+
+    for (int i = 0; i < nb_strings; i++) {
+        len += strlen(strings[i]);
+    }
+    dest = calloc(len + strlen(separator) * nb_strings, sizeof(char));
+    if (!dest)
+        return NULL;
+    for (int i = 0; i < nb_strings; i++) {
+        strcat(dest, strings[i]);
+        if (i < nb_strings - 1)
+            strcat(dest, separator);
+    }
+    return dest;
+}
+
+static char *df_get_as_string(dataframe_t *dataframe, int row, int col)
+{
+    char *tmp;
+
+    if (dataframe->column_types[col] == BOOL) {
+        // printf("]] %d\n", *((char *) dataframe->data[row][col]));
+        return strdup(
+            *((char *) dataframe->data[row][col]) ? DF_TRUE : DF_FALSE);
+    }
+    if (dataframe->column_types[col] == INT) {
+        tmp = calloc(16, sizeof(char));
+        if (!tmp)
+            return NULL;
+        sprintf(tmp, "%d", df_getint(dataframe, row, col));
+        return tmp;
+    }
+    if (dataframe->column_types[col] == UINT) {
+        tmp = calloc(16, sizeof(char));
+        if (!tmp)
+            return NULL;
+        sprintf(tmp, "%u", df_getuint(dataframe, row, col));
+        return tmp;
+    }
+    if (dataframe->column_types[col] == FLOAT) {
+        tmp = calloc(16, sizeof(char));
+        if (!tmp)
+            return NULL;
+        sprintf(tmp, "%f", df_getfloat(dataframe, row, col));
+        return tmp;
+    }
+    return strdup(dataframe->data[row][col]);
+}
+
+static char **df_line_to_string_array(dataframe_t *dataframe, int line)
+{
+    char **strings = my_calloc(dataframe->nb_columns + 1, sizeof(char *));
+    if (!strings)
+        return NULL;
+    for (int i = 0; i < dataframe->nb_columns; i++) {
+        strings[i] = df_get_as_string(dataframe, line, i);
+    }
+    strings[dataframe->nb_columns] = NULL;
+    return strings;
+}
+
+static char *my_df_join(char *separator, dataframe_t *df, int line)
+{
+    char **strings = df_line_to_string_array(df, line);
+    char *res = NULL;
+
+    if (!strings)
+        return NULL;
+    res = my_join(separator, strings, df->nb_columns);
+    free_str_arr(strings);
+    return res;
+}
+
+int df_write_csv(dataframe_t *dataframe, const char *filename)
+{
+    FILE *file = fopen(filename, "w");
+    char *line = NULL;
+
+    if (!file)
+        return 84;
+    line = my_join(",", dataframe->column_names, dataframe->nb_columns);
+    if (!line)
+        return 84;
+    fprintf(file, "%s\n", line);
+    free(line);
+    for (int i = 0; i < dataframe->nb_rows; i++) {
+        line = my_df_join(",", dataframe, i);
+        if (!line)
+            return 84;
+        fprintf(file, "%s\n", line);
+        free(line);
+    }
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -278,6 +420,7 @@ int main(int argc, char **argv)
         return df_interr("Failed to alloc shape");
     }
     printf("Shape: %d rows, %d columns\n", shape->nb_rows, shape->nb_columns);
+    df_write_csv(df, "data_copy.csv");
     free(shape);
     free(df);
     return 0;

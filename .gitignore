@@ -1,0 +1,10 @@
+*.o
+*.a
+build
+bin
+*.gcda
+*.gcno
+*.gcov.json.gz
+*.profraw
+.idea
+bscuddle

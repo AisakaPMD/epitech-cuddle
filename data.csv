@@ -1,0 +1,8 @@
+name,age,city,married,wealth
+Alice,25,Paris,true,3
+Bob,30,London,true,4.50
+Charlie,35,Berlin,false,6.
+Léo,25,Paris,false,.9
+Nathan,30,London,false,-.5
+Alex,35,Berlin,true,123
+Paul,25,Paris,false,54.13

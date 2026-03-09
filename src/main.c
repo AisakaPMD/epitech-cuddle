@@ -129,6 +129,7 @@ static int df_set_columns_type(dataframe_t *df)
 {
     long tmp = 0;
     float tmpf = 0;
+    char *tmp_str = NULL;
 
     for (int i = 0; i < df->nb_columns; i++) {
         for (int j = 0; j < df->nb_rows; j++) {
@@ -153,15 +154,16 @@ static int df_set_columns_type(dataframe_t *df)
                 *(float *)df->data[j][i] = tmpf;
             }
             if (df->column_types[i] == BOOL) {
-                safe_free(&df->data[j][i]);
+                tmp_str = df->data[j][i];
                 df->data[j][i] = calloc(1, sizeof(char));
                 if (!df->data[j][i])
                     return df_interr("Could not allocate memory for column %d\n", i);
-                if (strcmp(df->data[j][i], DF_TRUE) == 0) {
+                if (strcmp(tmp_str, DF_TRUE) == 0) {
                     *(char *)df->data[j][i] = 1;
-                } else if (strcmp(df->data[j][i], DF_FALSE) == 0) {
+                } else if (strcmp(tmp_str, DF_FALSE) == 0) {
                     *(char *)df->data[j][i] = 0;
                 }
+                free(tmp_str);
             }
         }
     }
@@ -242,10 +244,50 @@ dataframe_shape_t *df_shape(dataframe_t *df)
     return shape;
 }
 
-// void df_mean_f(dataframe_t *dataframe, int i)
-// {
-//
-// }
+float df_getfloat(dataframe_t *dataframe, int row, int col)
+{
+    return *((float *) dataframe->data[row][col]);
+}
+
+int df_getint(dataframe_t *dataframe, int row, int col)
+{
+    return *((int *) dataframe->data[row][col]);
+}
+
+unsigned int df_getuint(dataframe_t *dataframe, int row, int col)
+{
+    return *((unsigned int *) dataframe->data[row][col]);
+}
+
+float df_mean_f(dataframe_t *dataframe, int col)
+{
+    float sum = 0;
+
+    for (int i = 0; i < dataframe->nb_rows; i++) {
+        sum += df_getfloat(dataframe, i, col);
+    }
+    return sum / (float) dataframe->nb_rows;
+}
+
+float df_mean_i(dataframe_t *dataframe, int col)
+{
+    float sum = 0;
+
+    for (int i = 0; i < dataframe->nb_rows; i++) {
+        sum += (float) df_getint(dataframe, i, col);
+    }
+    return sum / (float) dataframe->nb_rows;
+}
+
+float df_mean_u(dataframe_t *dataframe, int col)
+{
+    float sum = 0;
+
+    for (int i = 0; i < dataframe->nb_rows; i++) {
+        sum += (float) df_getuint(dataframe, i, col);
+    }
+    return sum / (float) dataframe->nb_rows;
+}
 
 void df_describe(dataframe_t *dataframe)
 {
@@ -257,101 +299,14 @@ void df_describe(dataframe_t *dataframe)
         printf("Column: %s\n", dataframe->column_names[i]);
         printf("Count: %d\n", dataframe->nb_rows);
         mean = 0;
-        for (int j = 0; j < dataframe->nb_rows; j++) {
-            mean += *((float *) dataframe->data[j][i]);
-        }
-        mean /= (float) dataframe->nb_rows;
+        if (dataframe->column_types[i] == FLOAT)
+            mean = df_mean_f(dataframe, i);
+        else if (dataframe->column_types[i] == INT)
+            mean = df_mean_i(dataframe, i);
+        else if (dataframe->column_types[i] == UINT)
+            mean = df_mean_u(dataframe, i);
         printf("Mean: %f\n", mean);
     }
-}
-
-void df_disp(dataframe_t *frame)
-{
-    for (int j = 0; j < frame->nb_rows; j++) {
-        for (int i = 0; i < frame->nb_columns; i++) {
-            if (frame->column_types[i] == INT)
-                printf("%10d | ", *(int *)frame->data[j][i]);
-            if (frame->column_types[i] == UINT)
-                printf("%10u | ", *(unsigned int *)frame->data[j][i]);
-            // if (frame->column_types[i] == 3)
-            //     printf("%10ld | ", (long int)frame->data[j][i]);
-            // if (frame->column_types[i] == 4)
-            //     printf("%10lu | ", (unsigned long int)frame->data[j][i]);
-            if (frame->column_types[i] == FLOAT)
-                printf("%10f | ", *(double *)frame->data[j][i]);
-            if (frame->column_types[i] == BOOL)
-                printf("%10d | ", *(char *)frame->data[j][i]);
-            if (frame->column_types[i] == STRING)
-                printf("%10s | ", (char *)frame->data[j][i]);
-        }
-        printf("\n");
-    }
-}
-
-void copy_data(void **copy, void **df, dataframe_t *dataframe)
-{
-    switch (dataframe->column_types[0])
-    {
-        case INT:
-        case UINT:
-        case FLOAT:
-        **(int **)copy = **(int **)df;
-        return;
-        case BOOL:
-        **(char **)copy = **(char **)df;
-        return;
-        case STRING:
-        *(char **)copy = strdup(*(char **)df);
-        return;
-    }
-}
-
-dataframe_t *data_dupe(dataframe_t *df)
-{
-    dataframe_t *copy = calloc(1, sizeof(dataframe_t));
-
-    printf("rows: %d    columns: %d\n", df->nb_rows, df->nb_columns);
-    copy->nb_rows = df->nb_rows;
-    copy->nb_columns = df->nb_columns;
-    copy->column_names = malloc(sizeof(char *) * df->nb_columns);
-    copy->data = malloc(sizeof(void **) * df->nb_rows);
-
-    for (int i = 0; i < df->nb_rows; i++) {
-        copy->data[i] = malloc(sizeof(void *) * df->nb_columns);
-        for (int j = 0; j < df->nb_columns; j++) {
-            if (i == 0)
-                copy->column_names[j] = strdup(df->column_names[j]);
-            printf("data: %p\n", df->data[i][j]);
-            copy_data(&copy->data[i][j], &df->data[i][j], df);
-        }
-    }
-    copy->column_types = malloc(sizeof(column_type_t) * df->nb_columns);
-    memcpy(copy->column_types, df->column_types,
-           sizeof(column_type_t) * df->nb_columns);
-
-    return copy;
-}
-
-dataframe_t *df_tail(dataframe_t *dataframe, int amount)
-{
-    int nb;
-    char *buf[amount];
-    dataframe_t *df =data_dupe(dataframe);
-    int start = dataframe->nb_rows - amount;
-
-
-    for (int i = dataframe->nb_rows; i > 0; i--) {
-        memmove(df->data, dataframe->data[start],sizeof(char *) * amount);
-        if (nb == amount)
-            break;
-        nb++;
-    }
-    for (int i = 0; i < dataframe->nb_columns; i++) {
-        for (int j = 3; j < dataframe->nb_rows; j++) {
-            free(dataframe->data[i][j]);
-        }
-    }
-    return df;
 }
 
 int main(int argc, char **argv)
@@ -377,6 +332,7 @@ int main(int argc, char **argv)
         return df_interr("Failed to alloc shape");
     }
     printf("Shape: %d rows, %d columns\n", shape->nb_rows, shape->nb_columns);
+    df_write_csv(df, "data_copy.csv");
     free(shape);
     free(df);
     return 0;

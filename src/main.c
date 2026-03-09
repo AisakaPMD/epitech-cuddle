@@ -309,6 +309,215 @@ void df_describe(dataframe_t *dataframe)
     }
 }
 
+void df_disp(dataframe_t *frame)
+{
+    for (int i = 0; i < frame->nb_columns; i++)
+        printf("%10s |", frame->column_names[i]);
+    printf("\n\n");
+    for (int j = 0; j < frame->nb_rows; j++) {
+        for (int i = 0; i < frame->nb_columns; i++) {
+            if (frame->column_types[i] == INT)
+                printf("%10d |", *(int *)frame->data[j][i]);
+            if (frame->column_types[i] == UINT)
+                printf("%10u |", *(unsigned int *)frame->data[j][i]);
+            if (frame->column_types[i] == FLOAT)
+                printf("%10.3f |", *(float *)frame->data[j][i]);
+            if (frame->column_types[i] == BOOL)
+                printf("%10d |", *(char *)frame->data[j][i]);
+            if (frame->column_types[i] == STRING)
+                printf("%10s |", (char *)frame->data[j][i]);
+        }
+        printf("\n");
+    }
+}
+
+void copy_data(void **copy, void **df, column_type_t type)
+{
+    switch (type)
+    {
+        case INT:
+        case UINT:
+        case FLOAT:
+        *(int **)copy = calloc(1, sizeof(int));
+        **(int **)copy = **(int **)df;
+        return;
+        case BOOL:
+        *(char **)copy = calloc(1, sizeof(char));
+        **(char **)copy = **(char **)df;
+        return;
+        case STRING:
+        printf("hello\n");
+        *(char **)copy = strdup(*(char **)df);
+        return;
+    }
+}
+
+dataframe_t *data_dupe(dataframe_t *df)
+{
+    dataframe_t *copy = calloc(1, sizeof(dataframe_t));
+
+    printf("rows: %d    columns: %d\n", df->nb_rows, df->nb_columns);
+    copy->nb_rows = df->nb_rows;
+    copy->nb_columns = df->nb_columns;
+    copy->column_names = malloc(sizeof(char *) * df->nb_columns);
+    copy->data = malloc(sizeof(void **) * df->nb_rows);
+
+    for (int i = 0; i < df->nb_rows; i++) {
+        copy->data[i] = malloc(sizeof(void *) * df->nb_columns);
+        for (int j = 0; j < df->nb_columns; j++) {
+            if (i == 0)
+                copy->column_names[j] = strdup(df->column_names[j]);
+            printf("data: %p\n", df->data[i][j]);
+            copy_data(&copy->data[i][j], &df->data[i][j], df->column_types[j]);
+        }
+    }
+    copy->column_types = malloc(sizeof(column_type_t) * df->nb_columns);
+    memcpy(copy->column_types, df->column_types,
+           sizeof(column_type_t) * df->nb_columns);
+
+    return copy;
+}
+
+dataframe_t *df_tail(dataframe_t *dataframe, int amount)
+{
+    dataframe_t *df =data_dupe(dataframe);
+    int start = df->nb_rows - amount;
+
+    if (amount < 0 || amount > df->nb_rows)
+        return NULL;
+    for (int i = 0; i < df->nb_columns; i++) {
+        for (int j = 0; j < df->nb_rows - amount; j++) {
+            free(df->data[j][i]);
+        }
+    }
+
+    for (int i = df->nb_rows; i > df->nb_rows - amount; i--) {
+        memmove(df->data, dataframe->data + start,sizeof(char *) * amount);
+    }
+    df->nb_rows = amount;
+
+    return df;
+}
+
+dataframe_t *df_head(dataframe_t *dataframe, int amount)
+{
+    dataframe_t *df =data_dupe(dataframe);
+    int start = 0;
+
+    if (amount < 0 || amount > df->nb_rows)
+        return NULL;
+    for (int i = 0; i < df->nb_columns; i++) {
+        for (int j = 0; j < df->nb_rows - amount; j++) {
+            free(df->data[j][i]);
+        }
+    }
+
+    for (int i = df->nb_rows; i > df->nb_rows - amount; i--) {
+        memmove(df->data, dataframe->data + start,sizeof(char *) * amount);
+    }
+    df->nb_rows = amount;
+
+    return df;
+}
+
+static char *my_join(char *separator, char **strings, int nb_strings)
+{
+    size_t len = 0;
+    char *dest = NULL;
+
+    for (int i = 0; i < nb_strings; i++) {
+        len += strlen(strings[i]);
+    }
+    dest = calloc(len + strlen(separator) * nb_strings, sizeof(char));
+    if (!dest)
+        return NULL;
+    for (int i = 0; i < nb_strings; i++) {
+        strcat(dest, strings[i]);
+        if (i < nb_strings - 1)
+            strcat(dest, separator);
+    }
+    return dest;
+}
+
+static char *df_get_as_string(dataframe_t *dataframe, int row, int col)
+{
+    char *tmp;
+
+    if (dataframe->column_types[col] == BOOL) {
+        // printf("]] %d\n", *((char *) dataframe->data[row][col]));
+        return strdup(
+            *((char *) dataframe->data[row][col]) ? DF_TRUE : DF_FALSE);
+    }
+    if (dataframe->column_types[col] == INT) {
+        tmp = calloc(16, sizeof(char));
+        if (!tmp)
+            return NULL;
+        sprintf(tmp, "%d", df_getint(dataframe, row, col));
+        return tmp;
+    }
+    if (dataframe->column_types[col] == UINT) {
+        tmp = calloc(16, sizeof(char));
+        if (!tmp)
+            return NULL;
+        sprintf(tmp, "%u", df_getuint(dataframe, row, col));
+        return tmp;
+    }
+    if (dataframe->column_types[col] == FLOAT) {
+        tmp = calloc(16, sizeof(char));
+        if (!tmp)
+            return NULL;
+        sprintf(tmp, "%f", df_getfloat(dataframe, row, col));
+        return tmp;
+    }
+    return strdup(dataframe->data[row][col]);
+}
+
+static char **df_line_to_string_array(dataframe_t *dataframe, int line)
+{
+    char **strings = my_calloc(dataframe->nb_columns + 1, sizeof(char *));
+    if (!strings)
+        return NULL;
+    for (int i = 0; i < dataframe->nb_columns; i++) {
+        strings[i] = df_get_as_string(dataframe, line, i);
+    }
+    strings[dataframe->nb_columns] = NULL;
+    return strings;
+}
+
+static char *my_df_join(char *separator, dataframe_t *df, int line)
+{
+    char **strings = df_line_to_string_array(df, line);
+    char *res = NULL;
+
+    if (!strings)
+        return NULL;
+    res = my_join(separator, strings, df->nb_columns);
+    free_str_arr(strings);
+    return res;
+}
+
+int df_write_csv(dataframe_t *dataframe, const char *filename)
+{
+    FILE *file = fopen(filename, "w");
+    char *line = NULL;
+
+    if (!file)
+        return 84;
+    line = my_join(",", dataframe->column_names, dataframe->nb_columns);
+    if (!line)
+        return 84;
+    fprintf(file, "%s\n", line);
+    free(line);
+    for (int i = 0; i < dataframe->nb_rows; i++) {
+        line = my_df_join(",", dataframe, i);
+        if (!line)
+            return 84;
+        fprintf(file, "%s\n", line);
+        free(line);
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     dataframe_t *df = df_read_csv("data.csv", NULL);
@@ -320,8 +529,10 @@ int main(int argc, char **argv)
     }
     df_info(df);
     printf("\n\n");
-    // tail = df_tail(df, 1);
-    tail = data_dupe(df);
+    tail = df_head(df, 7);
+    if (tail == NULL)
+        return 84;
+    // tail = data_dupe(df);
     df_disp(tail);
     printf("\n\n");
     df_disp(df);

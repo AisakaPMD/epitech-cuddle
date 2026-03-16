@@ -36,4 +36,17 @@ typedef struct {
     int nb_rows;
 } dataframe_shape_t;
 
+dataframe_t *data_dupe(dataframe_t *df);
+dataframe_t *df_apply(dataframe_t *dataframe, const char *column,
+    void *(*apply_func)(void *value));
+void *apply_func(void *value);
+void *apply_f(void *value);
+dataframe_t *df_to_type(dataframe_t *dataframe, const char *column, column_type_t downcast);
+void *str_to_nb(void *data, column_type_t before, column_type_t downcast, int *end);
+dataframe_t *df_groupby(dataframe_t *dataframe, const char *aggregate_by, const char
+    **to_aggregate, void *(*agg_func)(void **values, int nb_values));
+void *agg_func(void **values, int nb_values);
+
+
+
 #endif

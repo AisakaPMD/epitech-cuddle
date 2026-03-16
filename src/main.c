@@ -520,8 +520,8 @@ int df_write_csv(dataframe_t *dataframe, const char *filename)
 
 int main(int argc, char **argv)
 {
-    dataframe_t *df = df_read_csv("data.csv", NULL);
-    dataframe_t *tail;
+    dataframe_t *df = df_read_csv("type.csv", NULL);
+    dataframe_t *test;
 
     if (!df) {
         fprintf(stderr, "Error reading file\n");
@@ -529,11 +529,16 @@ int main(int argc, char **argv)
     }
     df_info(df);
     printf("\n\n");
-    tail = df_head(df, 7);
-    if (tail == NULL)
-        return 84;
+
+    // tail = df_head(df, 4);
+    // test = df_apply(df, "age", apply_func);
+    // if (test == NULL)
+    //     return 84;
+    dataframe_t *new_dataframe = df_to_type(df, "amount", UINT);
     // tail = data_dupe(df);
-    df_disp(tail);
+    // df_disp(test);
+    // printf("\n\n");
+    df_disp(new_dataframe);
     printf("\n\n");
     df_disp(df);
 
@@ -543,6 +548,7 @@ int main(int argc, char **argv)
         return df_interr("Failed to alloc shape");
     }
     printf("Shape: %d rows, %d columns\n", shape->nb_rows, shape->nb_columns);
+    df_info(new_dataframe);
     df_write_csv(df, "data_copy.csv");
     free(shape);
     free(df);

@@ -9,7 +9,9 @@
 #
 
 NAME = bscuddle
-SRC_FILENAMES = main.c
+SRC_FILENAMES = main.c	\
+				transformation.c	\
+				str_to_nb.c
 HEADERS = benjalib.h
 
 

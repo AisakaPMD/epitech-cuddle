@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "benjalib.h"
+#include "dataframe.h"
 
 static int is_word(char c, char const *separator)
 {
@@ -29,22 +29,10 @@ static int wordlen(char const *begin, char const *separator)
     for (; begin[len] && is_word(begin[len], separator); len++);
     return len;
 }
-/*static int count_words_loop(int is_word, int *in_word)
-{
-    int nb_words = 0;
-
-    if (is_word) {
-        if (!(*in_word))
-            nb_words++;
-        *in_word = 1;
-    } else
-        *in_word = 0;
-    return nb_words;
-}*/
 
 static int count_words(char const *str, char const *separator)
 {
-    int nb_words = my_strlen(str) > 0;
+    int nb_words = strlen(str) > 0;
 
     for (int i = 0; str[i]; i++) {
         nb_words += !is_word(str[i], separator);
@@ -62,13 +50,13 @@ char **my_explode(char const *str, char const *separator)
     for (int i = 0; str[i]; i++) {
         if (is_word(str[i], separator)) {
             word_len = wordlen(str + i, separator);
-            array[cur_word] = my_strndup(str + i, word_len);
+            array[cur_word] = strndup(str + i, word_len);
             cur_word++;
             i += word_len - 1;
         }
     }
-    if (!is_word(str[my_strlen(str) - 1], separator))
-        array[words - 1] = my_strdup("");
+    if (!is_word(str[strlen(str) - 1], separator))
+        array[words - 1] = strdup("");
     array[words] = NULL;
     return array;
 }

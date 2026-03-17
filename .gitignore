@@ -8,3 +8,6 @@ bin
 *.profraw
 .idea
 bscuddle
+libcuddle.a
+libtest
+*.csv

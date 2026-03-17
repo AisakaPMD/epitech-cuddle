@@ -9,19 +9,15 @@
 ** Feb 2026
 */
 
-#include <benjalib.h>
 #include <ctype.h>
 #include <iso646.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "dataframe.h"
 
-void *apply_f(void *value)
-{
-    return value;
-}
 
 void *nb_to_str(void *data, column_type_t before,
     column_type_t downcast, int *end)
@@ -55,11 +51,11 @@ static char *switch_nb(void *data, column_type_t downcast)
     switch (downcast) {
         case INT:
             temp = calloc(1, sizeof(int));
-            *(int *)temp = my_getnbr(data);
+            *(int *)temp = atoi(data);
             break;
         case UINT:
             temp = calloc(1, sizeof(int));
-            *(unsigned int *)temp = my_getnbr(data);
+            *(unsigned int *)temp = atoi(data);
             break;
         case FLOAT:
             temp = calloc(1, sizeof(float));
@@ -67,14 +63,14 @@ static char *switch_nb(void *data, column_type_t downcast)
             break;
         case BOOL:
             temp = calloc(1, sizeof(bool));
-            *(bool *)temp = my_getnbr(data);
+            *(bool *)temp = atoi(data);
     }
     return temp;
 }
 
 static void *put_inf(void *data, void *temp, char *buf, column_type_t downcast)
 {
-    data = my_strdup(buf);
+    data = strdup(buf);
     temp = switch_nb(data, downcast);
     free(data);
     data = temp;
@@ -111,7 +107,7 @@ static int change_type(const char *column, dataframe_t *df,
     int column_place = 0;
 
     for (; column_place < df->nb_columns; column_place++)
-        if (my_strcmp(df->column_names[column_place], column) == 0) {
+        if (strcmp(df->column_names[column_place], column) == 0) {
             df->column_types[column_place] = downcast;
             break;
         }
@@ -157,7 +153,7 @@ dataframe_t *df_apply(dataframe_t *dataframe, const char *column,
     int column_place = 0;
 
     for (; column_place < df->nb_columns; column_place++)
-        if (my_strcmp(df->column_names[column_place], column) == 0)
+        if (strcmp(df->column_names[column_place], column) == 0)
             break;
     for (int i = 0; i < df->nb_rows; i++)
         df->data[i][column_place] =

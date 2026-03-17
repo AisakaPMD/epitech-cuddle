@@ -9,7 +9,6 @@
 ** Feb 2026
 */
 
-#include <benjalib.h>
 #include <ctype.h>
 #include <iso646.h>
 #include <stdbool.h>
@@ -35,7 +34,7 @@ static void *find_nb(void *data, column_type_t downcast)
     switch (downcast) {
         case INT:
             temp = calloc(1, sizeof(int));
-            *(int *)temp = my_getnbr(data);
+            *(int *)temp = atoi(data);
             break;
         case FLOAT:
             temp = calloc(1, sizeof(float));
@@ -43,7 +42,7 @@ static void *find_nb(void *data, column_type_t downcast)
             break;
         case UINT:
             temp = calloc(1, sizeof(int));
-            *(unsigned int *)temp = my_getnbr(data);
+            *(unsigned int *)temp = atoi(data);
             break;
         case BOOL:
             temp = which_bool(temp, data);

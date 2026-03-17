@@ -8,7 +8,7 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     - name: Echo branch name
-      run: echo "Branch Name : ${{ github.ref_name }}"
+      run: echo "Branch Name ${{ github.ref_name }}"
     - name: Repo Size
       run: du -skh --exclude=".git"
       
